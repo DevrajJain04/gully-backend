@@ -1,0 +1,129 @@
+﻿=== COMPREHENSIVE API TEST ===
+  Timestamp: 141205
+
+[POST] http://localhost:8080/api/auth/register
+  Register creator
+  PASS
+  -> Creator UserID: 6996ccdee55078ca00afdecb
+[POST] http://localhost:8080/api/auth/register
+  Register member
+  PASS
+[POST] http://localhost:8080/api/auth/login
+  Login creator
+  PASS
+[POST] http://localhost:8080/api/auth/login
+  Login member
+  PASS
+
+[POST] http://localhost:8080/api/groups
+  Create group
+  PASS
+  -> GroupID: 6996ccdee55078ca00afdecd | JoinCode: XTEBCO
+  -> Creator auto-added to members: PASS
+[POST] http://localhost:8080/api/groups/join
+  Member joins group
+  PASS
+[GET] http://localhost:8080/api/user/groups
+  Get creator groups (GET /user/groups)
+  PASS
+  -> 1 group(s)
+[GET] http://localhost:8080/api/user/groups
+  Get member groups (GET /user/groups)
+  PASS
+  -> 1 group(s)
+[GET] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd
+  Get group details
+  PASS
+
+[POST] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players
+  Create player Rahul
+  PASS
+[POST] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players
+  Create player Vikas
+  PASS
+[POST] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players
+  Create player Priya
+  PASS
+[GET] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players
+  Get players
+  PASS
+  -> 3 players
+
+[POST] http://localhost:8080/api/matches
+  Create match (Rahul vs Vikas)
+  PASS
+  -> MatchID: 6996ccdee55078ca00afded1 | Status: live
+  -> started_at present: PASS
+[POST] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/score
+  Score +1 player1
+  PASS
+  -> Score: 1-0
+[POST] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/score
+  Score +1 player1 again
+  PASS
+[POST] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/score
+  Score +1 player2
+  PASS
+  -> Score: 2-1
+[POST] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/undo
+  Undo last score
+  PASS
+  -> After undo: 2-0
+
+[PUT] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/score
+  Admin edit score (creator)
+  PASS
+  -> After edit: 11-7
+[PUT] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/score
+  Non-creator edit score (expect 403) (expect rejection)
+  PASS (correctly rejected)
+
+[POST] http://localhost:8080/api/matches/6996ccdee55078ca00afded1/finish
+  Finish match
+  PASS
+  -> Status: finished
+  -> finished_at: PASS
+  -> duration_secs=0s: PASS
+[GET] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/matches
+  Get matches
+  PASS
+  -> 1 match(es)
+
+[POST] http://localhost:8080/api/matches/result
+  Add past result (Rahul vs Priya 21-18)
+  PASS
+  -> ID: 6996ccdee55078ca00afded2 | Status: finished | Score: 21-18
+  -> Past result status=finished: PASS
+
+[DELETE] http://localhost:8080/api/matches/6996ccdee55078ca00afded2
+  Non-creator delete match (expect 403) (expect rejection)
+  PASS (correctly rejected)
+[DELETE] http://localhost:8080/api/matches/6996ccdee55078ca00afded2
+  Admin delete match (creator)
+  PASS
+  -> match deleted
+[GET] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/matches
+  Get matches after delete
+  PASS
+  -> 1 match(es) remaining
+
+[DELETE] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players/6996ccdee55078ca00afded0
+  Non-creator delete player (expect 403) (expect rejection)
+  PASS (correctly rejected)
+[DELETE] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players/6996ccdee55078ca00afded0
+  Admin delete player Priya
+  PASS
+  -> player deleted
+[GET] http://localhost:8080/api/groups/6996ccdee55078ca00afdecd/players
+  Get players after delete
+  PASS
+  -> 2 player(s) remaining
+
+=== CORS PREFLIGHT ===
+  Allow-Origin: *
+  CORS PASS
+
+========================================
+ RESULTS: 35 PASSED / 35 TOTAL
+========================================
+

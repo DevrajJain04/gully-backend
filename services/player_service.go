@@ -31,3 +31,7 @@ func (s *PlayerService) CreatePlayer(ctx context.Context, name string, groupID p
 func (s *PlayerService) GetPlayers(ctx context.Context, groupID primitive.ObjectID) ([]models.Player, error) {
 	return s.playerRepo.FindByGroupID(ctx, groupID)
 }
+
+func (s *PlayerService) DeletePlayer(ctx context.Context, playerID primitive.ObjectID) error {
+	return s.playerRepo.Delete(ctx, playerID)
+}

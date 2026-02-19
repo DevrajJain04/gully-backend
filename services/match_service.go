@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -30,6 +31,7 @@ func (s *MatchService) CreateMatch(ctx context.Context, groupID, player1ID, play
 		return nil, errors.New("player 2 not found")
 	}
 
+	now := time.Now()
 	match := &models.Match{
 		GroupID:      groupID,
 		Player1ID:    player1ID,
@@ -40,6 +42,39 @@ func (s *MatchService) CreateMatch(ctx context.Context, groupID, player1ID, play
 		Score2:       0,
 		ScoreHistory: []string{},
 		Status:       models.MatchStatusLive,
+		StartedAt:    now,
+	}
+	if err := s.matchRepo.Create(ctx, match); err != nil {
+		return nil, err
+	}
+	return match, nil
+}
+
+// AddResult creates a finished match with final scores (for past matches).
+func (s *MatchService) AddResult(ctx context.Context, groupID, player1ID, player2ID primitive.ObjectID, score1, score2 int) (*models.Match, error) {
+	p1, err := s.playerRepo.FindByID(ctx, player1ID)
+	if err != nil {
+		return nil, errors.New("player 1 not found")
+	}
+	p2, err := s.playerRepo.FindByID(ctx, player2ID)
+	if err != nil {
+		return nil, errors.New("player 2 not found")
+	}
+
+	now := time.Now()
+	match := &models.Match{
+		GroupID:      groupID,
+		Player1ID:    player1ID,
+		Player2ID:    player2ID,
+		Player1Name:  p1.Name,
+		Player2Name:  p2.Name,
+		Score1:       score1,
+		Score2:       score2,
+		ScoreHistory: []string{},
+		Status:       models.MatchStatusFinished,
+		StartedAt:    now,
+		FinishedAt:   &now,
+		DurationSecs: 0,
 	}
 	if err := s.matchRepo.Create(ctx, match); err != nil {
 		return nil, err
@@ -111,7 +146,7 @@ func (s *MatchService) UndoScore(ctx context.Context, matchID primitive.ObjectID
 	return match, nil
 }
 
-// FinishMatch marks the match as finished.
+// FinishMatch marks the match as finished and records the duration.
 func (s *MatchService) FinishMatch(ctx context.Context, matchID primitive.ObjectID) (*models.Match, error) {
 	match, err := s.matchRepo.FindByID(ctx, matchID)
 	if err != nil {
@@ -121,7 +156,30 @@ func (s *MatchService) FinishMatch(ctx context.Context, matchID primitive.Object
 		return nil, errors.New("match is already finished")
 	}
 
+	now := time.Now()
 	match.Status = models.MatchStatusFinished
+	match.FinishedAt = &now
+	match.DurationSecs = int(now.Sub(match.StartedAt).Seconds())
+
+	if err := s.matchRepo.Update(ctx, match); err != nil {
+		return nil, err
+	}
+	return match, nil
+}
+
+// DeleteMatch removes a match.
+func (s *MatchService) DeleteMatch(ctx context.Context, matchID primitive.ObjectID) error {
+	return s.matchRepo.Delete(ctx, matchID)
+}
+
+// EditScore directly sets scores (admin only).
+func (s *MatchService) EditScore(ctx context.Context, matchID primitive.ObjectID, score1, score2 int) (*models.Match, error) {
+	match, err := s.matchRepo.FindByID(ctx, matchID)
+	if err != nil {
+		return nil, err
+	}
+	match.Score1 = score1
+	match.Score2 = score2
 	if err := s.matchRepo.Update(ctx, match); err != nil {
 		return nil, err
 	}

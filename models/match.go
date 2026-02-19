@@ -22,6 +22,9 @@ type Match struct {
 	Score2       int                `bson:"score2"        json:"score2"`
 	ScoreHistory []string           `bson:"score_history" json:"score_history"`
 	Status       string             `bson:"status"        json:"status"`
+	StartedAt    time.Time          `bson:"started_at"    json:"started_at"`
+	FinishedAt   *time.Time         `bson:"finished_at"   json:"finished_at"`
+	DurationSecs int                `bson:"duration_secs" json:"duration_secs"`
 	CreatedAt    time.Time          `bson:"created_at"    json:"created_at"`
 	UpdatedAt    time.Time          `bson:"updated_at"    json:"updated_at"`
 }

@@ -55,7 +55,14 @@ func (h *GroupHandler) JoinGroup(c *gin.Context) {
 		return
 	}
 
-	group, err := h.groupService.JoinGroup(c.Request.Context(), req.Code)
+	userIDStr, _ := c.Get("user_id")
+	userID, err := primitive.ObjectIDFromHex(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	group, err := h.groupService.JoinGroup(c.Request.Context(), req.Code, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
 		return
@@ -78,4 +85,21 @@ func (h *GroupHandler) GetGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"group": group})
+}
+
+func (h *GroupHandler) GetUserGroups(c *gin.Context) {
+	userIDStr, _ := c.Get("user_id")
+	userID, err := primitive.ObjectIDFromHex(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	groups, err := h.groupService.GetUserGroups(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"groups": groups})
 }

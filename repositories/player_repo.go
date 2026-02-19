@@ -48,3 +48,8 @@ func (r *PlayerRepo) FindByID(ctx context.Context, id primitive.ObjectID) (*mode
 	}
 	return &player, nil
 }
+
+func (r *PlayerRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}

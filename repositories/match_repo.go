@@ -57,3 +57,8 @@ func (r *MatchRepo) Update(ctx context.Context, match *models.Match) error {
 	_, err := r.col.ReplaceOne(ctx, bson.M{"_id": match.ID}, match)
 	return err
 }
+
+func (r *MatchRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}

@@ -61,8 +61,8 @@ func main() {
 	// 6. Init handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	groupHandler := handlers.NewGroupHandler(groupService)
-	playerHandler := handlers.NewPlayerHandler(playerService)
-	matchHandler := handlers.NewMatchHandler(matchService, hub)
+	playerHandler := handlers.NewPlayerHandler(playerService, groupService)
+	matchHandler := handlers.NewMatchHandler(matchService, groupService, hub)
 
 	// 7. Setup Gin
 	r := gin.Default()

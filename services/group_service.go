@@ -25,6 +25,7 @@ func (s *GroupService) CreateGroup(ctx context.Context, name string, createdBy p
 		Name:      name,
 		JoinCode:  generateJoinCode(6),
 		CreatedBy: createdBy,
+		Members:   []primitive.ObjectID{createdBy},
 	}
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
@@ -32,12 +33,25 @@ func (s *GroupService) CreateGroup(ctx context.Context, name string, createdBy p
 	return group, nil
 }
 
-func (s *GroupService) JoinGroup(ctx context.Context, code string) (*models.Group, error) {
-	return s.groupRepo.FindByJoinCode(ctx, code)
+func (s *GroupService) JoinGroup(ctx context.Context, code string, userID primitive.ObjectID) (*models.Group, error) {
+	group, err := s.groupRepo.FindByJoinCode(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	// Add user to members (idempotent)
+	if err := s.groupRepo.AddMember(ctx, group.ID, userID); err != nil {
+		return nil, err
+	}
+	// Re-fetch to get updated members list
+	return s.groupRepo.FindByID(ctx, group.ID)
 }
 
 func (s *GroupService) GetGroup(ctx context.Context, id primitive.ObjectID) (*models.Group, error) {
 	return s.groupRepo.FindByID(ctx, id)
+}
+
+func (s *GroupService) GetUserGroups(ctx context.Context, userID primitive.ObjectID) ([]models.Group, error) {
+	return s.groupRepo.FindByMember(ctx, userID)
 }
 
 func generateJoinCode(length int) string {

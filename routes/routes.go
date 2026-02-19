@@ -31,6 +31,9 @@ func Setup(
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware(jwtSecret))
 	{
+		// User
+		api.GET("/user/groups", groupHandler.GetUserGroups)
+
 		// Groups
 		api.POST("/groups", groupHandler.CreateGroup)
 		api.POST("/groups/join", groupHandler.JoinGroup)
@@ -39,12 +42,16 @@ func Setup(
 		// Players
 		api.POST("/groups/:id/players", playerHandler.CreatePlayer)
 		api.GET("/groups/:id/players", playerHandler.GetPlayers)
+		api.DELETE("/groups/:id/players/:playerId", playerHandler.DeletePlayer)
 
 		// Matches
 		api.POST("/matches", matchHandler.CreateMatch)
+		api.POST("/matches/result", matchHandler.AddResult)
 		api.GET("/groups/:id/matches", matchHandler.GetMatches)
 		api.POST("/matches/:id/score", matchHandler.UpdateScore)
+		api.PUT("/matches/:id/score", matchHandler.EditScore)
 		api.POST("/matches/:id/undo", matchHandler.UndoScore)
 		api.POST("/matches/:id/finish", matchHandler.FinishMatch)
+		api.DELETE("/matches/:id", matchHandler.DeleteMatch)
 	}
 }

@@ -43,3 +43,24 @@ func (r *GroupRepo) FindByJoinCode(ctx context.Context, code string) (*models.Gr
 	}
 	return &group, nil
 }
+
+// FindByMember returns all groups where the given user is a member.
+func (r *GroupRepo) FindByMember(ctx context.Context, userID primitive.ObjectID) ([]models.Group, error) {
+	cursor, err := r.col.Find(ctx, bson.M{"members": userID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var groups []models.Group
+	if err := cursor.All(ctx, &groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// AddMember adds a user to the group's member list (idempotent via $addToSet).
+func (r *GroupRepo) AddMember(ctx context.Context, groupID, userID primitive.ObjectID) error {
+	_, err := r.col.UpdateByID(ctx, groupID, bson.M{"$addToSet": bson.M{"members": userID}})
+	return err
+}
