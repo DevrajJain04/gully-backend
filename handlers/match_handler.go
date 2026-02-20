@@ -34,10 +34,12 @@ func (h *MatchHandler) isGroupCreator(c *gin.Context, groupID primitive.ObjectID
 	return group.CreatedBy == userID
 }
 
+// ── Create Match ──
+
 type createMatchRequest struct {
-	GroupID   string `json:"group_id" binding:"required"`
-	Player1ID string `json:"player1_id" binding:"required"`
-	Player2ID string `json:"player2_id" binding:"required"`
+	GroupID  string   `json:"group_id" binding:"required"`
+	Team1IDs []string `json:"team1_ids" binding:"required"`
+	Team2IDs []string `json:"team2_ids" binding:"required"`
 }
 
 func (h *MatchHandler) CreateMatch(c *gin.Context) {
@@ -52,18 +54,18 @@ func (h *MatchHandler) CreateMatch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
 		return
 	}
-	p1, err := primitive.ObjectIDFromHex(req.Player1ID)
+	t1, err := parseObjectIDs(req.Team1IDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid player1_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid team1 player id"})
 		return
 	}
-	p2, err := primitive.ObjectIDFromHex(req.Player2ID)
+	t2, err := parseObjectIDs(req.Team2IDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid player2_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid team2 player id"})
 		return
 	}
 
-	match, err := h.matchService.CreateMatch(c.Request.Context(), groupID, p1, p2)
+	match, err := h.matchService.CreateMatch(c.Request.Context(), groupID, t1, t2)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -72,6 +74,8 @@ func (h *MatchHandler) CreateMatch(c *gin.Context) {
 	h.hub.BroadcastToGroup(req.GroupID, gin.H{"type": "match_created", "match": match})
 	c.JSON(http.StatusCreated, gin.H{"match": match})
 }
+
+// ── Get Matches ──
 
 func (h *MatchHandler) GetMatches(c *gin.Context) {
 	groupID, err := primitive.ObjectIDFromHex(c.Param("id"))
@@ -89,8 +93,11 @@ func (h *MatchHandler) GetMatches(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"matches": matches})
 }
 
+// ── Update Score ──
+
 type updateScoreRequest struct {
-	Player int `json:"player" binding:"required"` // 1 or 2
+	Team     int    `json:"team" binding:"required"`      // 1 or 2
+	PlayerID string `json:"player_id" binding:"required"` // hex ID of scorer
 }
 
 func (h *MatchHandler) UpdateScore(c *gin.Context) {
@@ -106,7 +113,7 @@ func (h *MatchHandler) UpdateScore(c *gin.Context) {
 		return
 	}
 
-	match, err := h.matchService.UpdateScore(c.Request.Context(), matchID, req.Player)
+	match, err := h.matchService.UpdateScore(c.Request.Context(), matchID, req.Team, req.PlayerID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -115,6 +122,8 @@ func (h *MatchHandler) UpdateScore(c *gin.Context) {
 	h.hub.BroadcastToGroup(match.GroupID.Hex(), gin.H{"type": "score_update", "match": match})
 	c.JSON(http.StatusOK, gin.H{"match": match})
 }
+
+// ── Undo Score ──
 
 func (h *MatchHandler) UndoScore(c *gin.Context) {
 	matchID, err := primitive.ObjectIDFromHex(c.Param("id"))
@@ -133,6 +142,8 @@ func (h *MatchHandler) UndoScore(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"match": match})
 }
 
+// ── Finish Match ──
+
 func (h *MatchHandler) FinishMatch(c *gin.Context) {
 	matchID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -150,7 +161,8 @@ func (h *MatchHandler) FinishMatch(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"match": match})
 }
 
-// DeleteMatch deletes a match (creator-only).
+// ── Delete Match (creator-only) ──
+
 func (h *MatchHandler) DeleteMatch(c *gin.Context) {
 	matchID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -158,7 +170,6 @@ func (h *MatchHandler) DeleteMatch(c *gin.Context) {
 		return
 	}
 
-	// Get match to find its group
 	match, err := h.matchService.GetMatch(c.Request.Context(), matchID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "match not found"})
@@ -179,12 +190,13 @@ func (h *MatchHandler) DeleteMatch(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "match deleted"})
 }
 
+// ── Edit Score (creator-only) ──
+
 type editScoreRequest struct {
 	Score1 int `json:"score1"`
 	Score2 int `json:"score2"`
 }
 
-// EditScore directly sets scores (creator-only).
 func (h *MatchHandler) EditScore(c *gin.Context) {
 	matchID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -219,15 +231,16 @@ func (h *MatchHandler) EditScore(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"match": updated})
 }
 
+// ── Add Result (past match) ──
+
 type addResultRequest struct {
-	GroupID   string `json:"group_id" binding:"required"`
-	Player1ID string `json:"player1_id" binding:"required"`
-	Player2ID string `json:"player2_id" binding:"required"`
-	Score1    int    `json:"score1"`
-	Score2    int    `json:"score2"`
+	GroupID  string   `json:"group_id" binding:"required"`
+	Team1IDs []string `json:"team1_ids" binding:"required"`
+	Team2IDs []string `json:"team2_ids" binding:"required"`
+	Score1   int      `json:"score1"`
+	Score2   int      `json:"score2"`
 }
 
-// AddResult creates a finished match directly (past match).
 func (h *MatchHandler) AddResult(c *gin.Context) {
 	var req addResultRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -240,22 +253,36 @@ func (h *MatchHandler) AddResult(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
 		return
 	}
-	p1, err := primitive.ObjectIDFromHex(req.Player1ID)
+	t1, err := parseObjectIDs(req.Team1IDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid player1_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid team1 player id"})
 		return
 	}
-	p2, err := primitive.ObjectIDFromHex(req.Player2ID)
+	t2, err := parseObjectIDs(req.Team2IDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid player2_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid team2 player id"})
 		return
 	}
 
-	match, err := h.matchService.AddResult(c.Request.Context(), groupID, p1, p2, req.Score1, req.Score2)
+	match, err := h.matchService.AddResult(c.Request.Context(), groupID, t1, t2, req.Score1, req.Score2)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"match": match})
+}
+
+// ── Utility ──
+
+func parseObjectIDs(hexIDs []string) ([]primitive.ObjectID, error) {
+	ids := make([]primitive.ObjectID, len(hexIDs))
+	for i, h := range hexIDs {
+		id, err := primitive.ObjectIDFromHex(h)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = id
+	}
+	return ids, nil
 }

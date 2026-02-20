@@ -52,7 +52,7 @@ func main() {
 	// 4. Init services
 	authService := services.NewAuthService(userRepo, cfg.JWTSecret)
 	groupService := services.NewGroupService(groupRepo)
-	playerService := services.NewPlayerService(playerRepo)
+	playerService := services.NewPlayerService(playerRepo, matchRepo)
 	matchService := services.NewMatchService(matchRepo, playerRepo)
 
 	// 5. Init WebSocket hub
@@ -60,7 +60,7 @@ func main() {
 
 	// 6. Init handlers
 	authHandler := handlers.NewAuthHandler(authService)
-	groupHandler := handlers.NewGroupHandler(groupService)
+	groupHandler := handlers.NewGroupHandler(groupService, playerService, userRepo)
 	playerHandler := handlers.NewPlayerHandler(playerService, groupService)
 	matchHandler := handlers.NewMatchHandler(matchService, groupService, hub)
 

@@ -53,3 +53,17 @@ func (r *PlayerRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
 	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }
+
+func (r *PlayerRepo) FindByNameAndGroupID(ctx context.Context, name string, groupID primitive.ObjectID) (*models.Player, error) {
+	var player models.Player
+	err := r.col.FindOne(ctx, bson.M{"name": name, "group_id": groupID}).Decode(&player)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+func (r *PlayerRepo) Update(ctx context.Context, player *models.Player) error {
+	_, err := r.col.ReplaceOne(ctx, bson.M{"_id": player.ID}, player)
+	return err
+}

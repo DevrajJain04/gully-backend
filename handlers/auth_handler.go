@@ -34,7 +34,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"user": user})
+	// Auto-login after registration to return a JWT token
+	token, _, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
+	if err != nil {
+		// Registration succeeded but token generation failed — still return user
+		c.JSON(http.StatusCreated, gin.H{"user": user})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"token": token, "user": user})
 }
 
 type loginRequest struct {

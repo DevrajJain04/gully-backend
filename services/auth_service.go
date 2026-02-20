@@ -13,11 +13,11 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *repositories.UserRepo
+	userRepo  repositories.UserRepository
 	jwtSecret string
 }
 
-func NewAuthService(userRepo *repositories.UserRepo, jwtSecret string) *AuthService {
+func NewAuthService(userRepo repositories.UserRepository, jwtSecret string) *AuthService {
 	return &AuthService{userRepo: userRepo, jwtSecret: jwtSecret}
 }
 
@@ -64,7 +64,7 @@ func (s *AuthService) generateJWT(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  user.ID.Hex(),
 		"username": user.Username,
-		"exp":      time.Now().Add(72 * time.Hour).Unix(),
+		"exp":      time.Now().Add(7 * 24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.jwtSecret))

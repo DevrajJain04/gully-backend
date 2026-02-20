@@ -43,6 +43,7 @@ func Setup(
 		api.POST("/groups/:id/players", playerHandler.CreatePlayer)
 		api.GET("/groups/:id/players", playerHandler.GetPlayers)
 		api.DELETE("/groups/:id/players/:playerId", playerHandler.DeletePlayer)
+		api.POST("/groups/:id/players/merge", playerHandler.MergePlayer)
 
 		// Matches
 		api.POST("/matches", matchHandler.CreateMatch)

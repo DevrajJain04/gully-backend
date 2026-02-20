@@ -13,10 +13,10 @@ import (
 const joinCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type GroupService struct {
-	groupRepo *repositories.GroupRepo
+	groupRepo repositories.GroupRepository
 }
 
-func NewGroupService(groupRepo *repositories.GroupRepo) *GroupService {
+func NewGroupService(groupRepo repositories.GroupRepository) *GroupService {
 	return &GroupService{groupRepo: groupRepo}
 }
 
