@@ -40,10 +40,6 @@ func (s *MatchService) CreateMatch(ctx context.Context, groupID primitive.Object
 		return nil, fmt.Errorf("team 2: %w", err)
 	}
 
-	// Build initial positions
-	t1Pos := toHexSlice(team1IDs)
-	t2Pos := toHexSlice(team2IDs)
-
 	now := time.Now()
 	match := &models.Match{
 		GroupID:         groupID,
@@ -56,8 +52,8 @@ func (s *MatchService) CreateMatch(ctx context.Context, groupID primitive.Object
 		ScoreHistory:    []models.ScoreEvent{},
 		ServingTeam:     1,
 		ServingPlayerID: team1IDs[0].Hex(),
-		Team1Positions:  t1Pos,
-		Team2Positions:  t2Pos,
+		Team1Positions:  toHexSlice(team1IDs),
+		Team2Positions:  toHexSlice(team2IDs),
 		Status:          models.MatchStatusLive,
 		StartedAt:       now,
 	}
@@ -112,6 +108,7 @@ func (s *MatchService) GetMatch(ctx context.Context, id primitive.ObjectID) (*mo
 }
 
 // UpdateScore increments the score for the given team and records the scorer.
+// All position/serve logic is handled by the frontend from scoreHistory.
 func (s *MatchService) UpdateScore(ctx context.Context, matchID primitive.ObjectID, team int, scorerID string) (*models.Match, error) {
 	match, err := s.matchRepo.FindByID(ctx, matchID)
 	if err != nil {
@@ -137,12 +134,9 @@ func (s *MatchService) UpdateScore(ctx context.Context, matchID primitive.Object
 
 	match.ScoreHistory = append(match.ScoreHistory, event)
 
-	// Serve goes to the scoring team
+	// Simple serve tracking (frontend computes the real server)
 	match.ServingTeam = team
 	match.ServingPlayerID = scorerID
-
-	// Swap logic: if same player scored consecutively, swap positions with partner
-	s.applySwapLogic(match)
 
 	if err := s.matchRepo.Update(ctx, match); err != nil {
 		return nil, err
@@ -173,21 +167,17 @@ func (s *MatchService) UndoScore(ctx context.Context, matchID primitive.ObjectID
 		match.Score2--
 	}
 
-	// Restore serve state from the previous event
+	// Restore simple serve state from previous event
 	if len(match.ScoreHistory) > 0 {
 		prev := match.ScoreHistory[len(match.ScoreHistory)-1]
 		match.ServingTeam = prev.Team
 		match.ServingPlayerID = prev.PlayerID
 	} else {
-		// Back to initial state
 		match.ServingTeam = 1
 		if len(match.Team1IDs) > 0 {
 			match.ServingPlayerID = match.Team1IDs[0].Hex()
 		}
 	}
-
-	// Rebuild positions from scratch based on history
-	s.rebuildPositions(match)
 
 	if err := s.matchRepo.Update(ctx, match); err != nil {
 		return nil, err
@@ -247,59 +237,6 @@ func (s *MatchService) resolvePlayerNames(ctx context.Context, ids []primitive.O
 		names[i] = p.Name
 	}
 	return names, nil
-}
-
-// applySwapLogic checks if the last two points were scored by the same player
-// and swaps their position with their partner on the same team (doubles only).
-func (s *MatchService) applySwapLogic(match *models.Match) {
-	n := len(match.ScoreHistory)
-	if n < 2 {
-		return
-	}
-
-	curr := match.ScoreHistory[n-1]
-	prev := match.ScoreHistory[n-2]
-
-	if curr.PlayerID != prev.PlayerID || curr.Team != prev.Team {
-		return
-	}
-
-	// Same player scored consecutively — swap positions with partner
-	switch curr.Team {
-	case 1:
-		if len(match.Team1Positions) == 2 {
-			match.Team1Positions[0], match.Team1Positions[1] = match.Team1Positions[1], match.Team1Positions[0]
-		}
-	case 2:
-		if len(match.Team2Positions) == 2 {
-			match.Team2Positions[0], match.Team2Positions[1] = match.Team2Positions[1], match.Team2Positions[0]
-		}
-	}
-}
-
-// rebuildPositions replays the score history to reconstruct court positions.
-func (s *MatchService) rebuildPositions(match *models.Match) {
-	// Reset to initial positions
-	match.Team1Positions = toHexSlice(match.Team1IDs)
-	match.Team2Positions = toHexSlice(match.Team2IDs)
-
-	// Replay swap logic
-	for i := 1; i < len(match.ScoreHistory); i++ {
-		curr := match.ScoreHistory[i]
-		prev := match.ScoreHistory[i-1]
-		if curr.PlayerID == prev.PlayerID && curr.Team == prev.Team {
-			switch curr.Team {
-			case 1:
-				if len(match.Team1Positions) == 2 {
-					match.Team1Positions[0], match.Team1Positions[1] = match.Team1Positions[1], match.Team1Positions[0]
-				}
-			case 2:
-				if len(match.Team2Positions) == 2 {
-					match.Team2Positions[0], match.Team2Positions[1] = match.Team2Positions[1], match.Team2Positions[0]
-				}
-			}
-		}
-	}
 }
 
 func toHexSlice(ids []primitive.ObjectID) []string {
